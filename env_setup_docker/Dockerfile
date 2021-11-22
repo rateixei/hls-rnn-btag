@@ -1,4 +1,4 @@
-FROM tensorflow/tensorflow:latest
+FROM tensorflow/tensorflow:2.4.1
 
 ## ensure locale is set during build
 ENV LANG C.UTF-8
@@ -49,7 +49,7 @@ RUN pip install argparse && \
     pip install pyyaml && \
     pip install protobuf==3.11.3 && \
     pip install onnx && \
-    pip install -e git://github.com/rateixei/hls4ml.git@keras-rnn#egg=hls4ml
+    pip install -e git://github.com/drankincms/hls4ml.git@keras-RNN-mastermerge#egg=hls4ml
     
 
 RUN apt-get install -y debconf-utils && \
