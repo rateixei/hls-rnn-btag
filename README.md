@@ -3,7 +3,7 @@ Training RNN's for b-tagging for hls4ml
 
 ## Image location
 ```
-gitlab-registry.cern.ch/rateixei/tfqkeras/tfqkeras:dylan_rnn
+gitlab-registry.cern.ch/rateixei/tfqkeras/tfqkeras:dylan_rnn_mastermerge
 ```
 
 This includes the keras-RNN branch from Dylan's hls4ml fork, plus all needed dependencies (including TensorFlow 2.4.1).
