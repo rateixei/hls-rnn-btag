@@ -1,3 +1,9 @@
+# Local non-desirables
+slac_batch/err/*
+slac_batch/out/*
+*.json
+*.h5
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

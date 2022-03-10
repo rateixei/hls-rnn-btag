@@ -8,6 +8,7 @@ from glob import glob
 import argparse
 
 import matplotlib
+matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 
 parser = argparse.ArgumentParser(description='Do HLS Things')

@@ -8,10 +8,12 @@ prec3=$5
 prec4=$6
 REUSE=$7
 STRAT=$8
+OUTD=/gpfs/slac/atlas/fs1/d/rafaeltl/public/ML/L1RNN/hls/projects/
 
-SINGULARITY_IMAGE_PATH=/gpfs/slac/atlas/fs1/d/rafaeltl/public/sing/rnnhls4mlqkeras_no_hls_tf234.sif
-# SINGULARITY_IMAGE_PATH=/gpfs/slac/atlas/fs1/d/rafaeltl/public/sing/rnnhls4mlqkeras_vDylan_tf241.sif
+HERE=/sdf/home/r/rafaeltl/home/rafaeltl/ML/L1BTag/Mar28/hls-rnn-btag/slac_batch/
 
-SUB="python do_hls_things.py -n ${KERAS_LOC}/${MOD} --prec ${prec1},${prec2},${prec3},${prec4} --reuse ${REUSE} --strategy ${STRAT} --vivado"
+SINGULARITY_IMAGE_PATH=/gpfs/slac/atlas/fs1/d/rafaeltl/public/sing/rnn_hls_keras_rnn_mastermerge_Feb14.sif
+
+SUB="python ${HERE}/do_hls_things.py -n ${KERAS_LOC}/${MOD} --output-dir ${OUTD} --prec ${prec1},${prec2},${prec3},${prec4} --reuse ${REUSE} --strategy ${STRAT} --vivado"
 
 singularity exec --nv -B /sdf,/gpfs,/scratch,/lscratch ${SINGULARITY_IMAGE_PATH} ${SUB}

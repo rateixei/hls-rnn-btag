@@ -1,7 +1,11 @@
 import os
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
+import sys
+
 import numpy as np
+import matplotlib
+matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 import h5py
 
@@ -22,7 +26,7 @@ parser.add_argument('-d', '--data', dest='data', type=str,
 parser.add_argument('-n', '--neural-network', dest='nn', type=str, required=True,
                     help='neural network to test')
 
-parser.add_argument('-o', '--output-dir', dest='out_dir', type=str, default='/sdf/home/r/rafaeltl/home/rafaeltl/ML/L1BTag/Mar28/L1BTag/code/hls/eval/',
+parser.add_argument('-o', '--output-dir', dest='out_dir', type=str, default='./',
                     help='Output location')
 
 parser.add_argument('-p', '--precision', dest='prec', type=str, default='16,6',
@@ -36,9 +40,13 @@ parser.add_argument('--profile', dest='prof', default=False, action='store_true'
 
 parser.add_argument('--strategy', dest='strat', default='Latency', 
                     help='Strategy')
-
 parser.add_argument('--vivado', dest='viv', action='store_true', default=False,
                     help='Do vivado things')
+parser.add_argument('--lut', dest='lut_prec', type=str, default='none', 
+                    help='Change LUT precision')
+
+# parser.add_argument('--scratch', dest='set_scratch', action='store_true', default=False,
+#                     help='Send project folder to scratch')
 
 args = parser.parse_args()
 
@@ -84,10 +92,22 @@ import hls4ml
 config = hls4ml.utils.config_from_keras_model(model, granularity='name', 
                                               default_precision=f'ap_fixed<{args.prec}>', 
                                               default_reuse_factor=args.reuse)
+
+#print(config)
+#sys.exit()
 if "Resource" in  args.strat:
     for layer in config['LayerName'].keys():
         config['LayerName'][layer]['Trace'] = True
     config['Model']['Strategy'] = 'Resource'
+
+#'table_t': 'ap_fixed<18,8>'
+#'lstm1': {'Precision': 'ap_fixed<8,4,AP_TRN,AP_WRAP>'}, 'lstm1_tanh': {'Precision': 'ap_fixed<8,4,AP_TRN,AP_WRAP>', 'ReuseFactor': 6, 'table_size': 1024, 'table_t': 'ap_fixed<18,8>'}
+#'gru': {'Precision': 'ap_fixed<8,4,AP_TRN,AP_WRAP>'}, 'gru_tanh': {'Precision': 'ap_fixed<8,4,AP_TRN,AP_WRAP>', 'ReuseFactor': 6, 'table_size': 1024, 'table_t': 'ap_fixed<18,8>'}
+
+if 'none' not in args.lut_prec:
+    for layer in config['LayerName'].keys():
+        if 'gru' in layer or 'lstm' in layer:
+            config['LayerName'][layer]['table_t'] = f'ap_fixed<{args.lut_prec}>'
 
 print("-----------------------------------")
 print("Configuration")
@@ -97,9 +117,11 @@ print("-----------------------------------")
 print("\n-----------------------------------")
 print('Starting Convert')
 hls_model_name = '_'.join( ['model', args.prec.replace(',', '.'), 'reuse', str(args.reuse), args.strat ] )
+proj_loc = out_loc_name + f'/{hls_model_name}/myproject_prj/'
+#proj_loc = out_loc_name + f'/{hls_model_name}/myproject_prj/'
 hls_model = hls4ml.converters.convert_from_keras_model(model,
                                                        hls_config=config,
-                                                       output_dir=out_loc_name + f'/{hls_model_name}/hls4ml_prj')
+                                                       output_dir=proj_loc)
 print("-----------------------------------")
 
 print("\n-----------------------------------")
@@ -154,7 +176,7 @@ if args.viv:
     from contextlib import redirect_stdout
     with open(out_loc_name+f'/reports/{hls_model_name}.txt', 'w') as f:
         with redirect_stdout(f):
-            hls4ml.report.read_vivado_report(out_loc_name + f'/{hls_model_name}/hls4ml_prj')
+            hls4ml.report.read_vivado_report(proj_loc)
     with open(out_loc_name+f'/reports/{hls_model_name}.txt', 'a') as f:
         f.write( f"KERAS_AUC {keras_auc}")
         f.write( "\n" )

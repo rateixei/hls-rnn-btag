@@ -1,4 +1,6 @@
 import numpy as np
+import matplotlib
+matplotlib.use('pdf')
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 import pandas as pd
