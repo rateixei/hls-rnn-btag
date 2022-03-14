@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import h5py
 
 from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.models import model_from_json
+from tensorflow.keras.models import model_from_json, load_model
 
 import plotting
 from sklearn.metrics import accuracy_score
@@ -67,14 +67,30 @@ except FileExistsError:
     pass
 
 print('--------- Loading network')
-arch_json = open(mod_arch, 'r').read()
-model = model_from_json(arch_json)
-model.load_weights(mod_weig)
+model = None
+if '.h5' in args.nn:
+    model = load_model(args.nn)
+else:
+    arch_json = open(mod_arch, 'r').read()
+    model = model_from_json(arch_json)
+    model.load_weights(mod_weig)
+
+if model is None:
+    print("Model is none, exiting")
+    sys.exit()
 
 print('--------- Loading data')
-f5 = h5py.File(args.data, 'r')
-x_test = np.array( f5['x_test'] )
-y_test = to_categorical ( np.array( f5['y_test'] ) )
+x_test = None
+y_test = None
+
+if 'npy' in args.data:
+    if ',' in args.data:
+        x_test = np.load(args.data.split(',')[0])
+        y_test = np.load(args.data.split(',')[1])
+else:
+    f5 = h5py.File(args.data, 'r')
+    x_test = np.array( f5['x_test'] )
+    y_test = to_categorical ( np.array( f5['y_test'] ) )
 
 print('--------- Keras testing')
 y_test_keras = model.predict(x_test, batch_size=2**10)
@@ -105,9 +121,12 @@ if "Resource" in  args.strat:
 #'gru': {'Precision': 'ap_fixed<8,4,AP_TRN,AP_WRAP>'}, 'gru_tanh': {'Precision': 'ap_fixed<8,4,AP_TRN,AP_WRAP>', 'ReuseFactor': 6, 'table_size': 1024, 'table_t': 'ap_fixed<18,8>'}
 
 if 'none' not in args.lut_prec:
+    t_size = int(2**float(args.prec.split(',')[1]))
     for layer in config['LayerName'].keys():
         if 'gru' in layer or 'lstm' in layer:
-            config['LayerName'][layer]['table_t'] = f'ap_fixed<{args.lut_prec}>'
+            # config['LayerName'][layer]['table_t'] = f'ap_fixed<{args.lut_prec}>'
+            
+            config['LayerName'][layer]['table_size'] = f'{t_size}'
 
 print("-----------------------------------")
 print("Configuration")
