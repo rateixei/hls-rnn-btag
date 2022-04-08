@@ -13,7 +13,7 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.models import model_from_json, load_model
 
 import plotting
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, roc_auc_score
 
 import argparse
 
@@ -42,7 +42,7 @@ parser.add_argument('--strategy', dest='strat', default='Latency',
                     help='Strategy')
 parser.add_argument('--vivado', dest='viv', action='store_true', default=False,
                     help='Do vivado things')
-parser.add_argument('--lut', dest='lut_prec', type=str, default='none', 
+parser.add_argument('--lut', dest='new_table', action='store_true', default=False, 
                     help='Change LUT precision')
 
 # parser.add_argument('--scratch', dest='set_scratch', action='store_true', default=False,
@@ -94,14 +94,26 @@ else:
 
 print('--------- Keras testing')
 y_test_keras = model.predict(x_test, batch_size=2**10)
-keras_auc = accuracy_score(np.argmax(y_test, axis=1), np.argmax(y_test_keras, axis=1))
-print(f"Keras-Accuracy: {keras_auc}")
+print(y_test_keras)
+print(y_test)
+print()
+#print(np.argmax(y_test_keras, axis=1))
+#print(np.argmax(y_test, axis=1))
 
-######
-plt.figure(figsize=(9,9))
-_ = plotting.makeRoc(y_test, y_test_keras)
-plt.savefig(out_loc_name+'/plots/keras_perf.pdf')
-######
+keras_auc = roc_auc_score(y_test, y_test_keras)
+
+#sys.exit()
+
+#print(y_test.shape, len(y_test.shape))
+#if len(y_test.shape) > 1:
+#    if y_test.shape[1] > 1:
+#        keras_auc = accuracy_score(np.argmax(y_test, axis=1), np.argmax(y_test_keras, axis=1))
+#    else:
+#        keras_auc = roc__score( y_test.astype('float').flatten(), y_test_keras.flatten() )
+#else:
+#    keras_auc = accuracy_score( y_test, y_test_keras )
+
+print(f"Keras-Accuracy: {keras_auc}")
 
 import hls4ml
 
@@ -111,21 +123,24 @@ config = hls4ml.utils.config_from_keras_model(model, granularity='name',
 
 #print(config)
 #sys.exit()
-if "Resource" in  args.strat:
+
+strat = args.strat
+if args.reuse < 2:
+    strat = 'Latency'
+
+if "Resource" in  strat:
     for layer in config['LayerName'].keys():
         config['LayerName'][layer]['Trace'] = True
+        if 'top' in args.nn or 'Top' in args.nn:
+            
     config['Model']['Strategy'] = 'Resource'
 
-#'table_t': 'ap_fixed<18,8>'
-#'lstm1': {'Precision': 'ap_fixed<8,4,AP_TRN,AP_WRAP>'}, 'lstm1_tanh': {'Precision': 'ap_fixed<8,4,AP_TRN,AP_WRAP>', 'ReuseFactor': 6, 'table_size': 1024, 'table_t': 'ap_fixed<18,8>'}
-#'gru': {'Precision': 'ap_fixed<8,4,AP_TRN,AP_WRAP>'}, 'gru_tanh': {'Precision': 'ap_fixed<8,4,AP_TRN,AP_WRAP>', 'ReuseFactor': 6, 'table_size': 1024, 'table_t': 'ap_fixed<18,8>'}
+if args.new_table:
+    t_size = max( int(2**(1+float(args.prec.split(',')[1]))  ), 1024)
 
-if 'none' not in args.lut_prec:
-    t_size = int(2**float(args.prec.split(',')[1]))
     for layer in config['LayerName'].keys():
-        if 'gru' in layer or 'lstm' in layer:
-            # config['LayerName'][layer]['table_t'] = f'ap_fixed<{args.lut_prec}>'
-            
+        if 'softmax' in layer or 'sigmoid' in layer or 'relu' in layer or 'tanh' in layer:
+            config['LayerName'][layer]['table_t'] = 'ap_fixed<18,1>'
             config['LayerName'][layer]['table_size'] = f'{t_size}'
 
 print("-----------------------------------")
@@ -135,9 +150,11 @@ print("-----------------------------------")
 
 print("\n-----------------------------------")
 print('Starting Convert')
-hls_model_name = '_'.join( ['model', args.prec.replace(',', '.'), 'reuse', str(args.reuse), args.strat ] )
+hls_model_name = '_'.join( ['model', args.prec.replace(',', '.'), 'reuse', str(args.reuse), strat ] )
+if args.new_table:
+    hls_model_name += '_NewBigTable'
+
 proj_loc = out_loc_name + f'/{hls_model_name}/myproject_prj/'
-#proj_loc = out_loc_name + f'/{hls_model_name}/myproject_prj/'
 hls_model = hls4ml.converters.convert_from_keras_model(model,
                                                        hls_config=config,
                                                        output_dir=proj_loc)
@@ -153,25 +170,26 @@ print("\n-----------------------------------")
 print('Starting Predict')
 x_test_cont = np.ascontiguousarray(x_test[:10000,:,:])
 y_test_hls = hls_model.predict(x_test_cont)
-hls_auc = accuracy_score(np.argmax(y_test[:10000], axis=1), np.argmax(y_test_hls, axis=1))
+#hls_auc = accuracy_score(np.argmax(y_test[:10000], axis=1), np.argmax(y_test_hls, axis=1))
+hls_auc = roc_auc_score(y_test[:10000], y_test_hls)
 print(f"HLS-Accuracy: {hls_auc}")
 print('Done HLS predict')
 print("-----------------------------------")
 
 ######
-fig, ax = plt.subplots(figsize=(9, 9))
+#fig, ax = plt.subplots(figsize=(9, 9))
 
-_ = plotting.makeRoc(y_test, y_test_keras)
-_ = plotting.makeRoc(y_test[:10000], y_test_hls, linestyle='--')
+#_ = plotting.makeRoc(y_test, y_test_keras)
+#_ = plotting.makeRoc(y_test[:10000], y_test_hls, linestyle='--')
 
-from matplotlib.lines import Line2D
-lines = [Line2D([0], [0], ls='-'),
-         Line2D([0], [0], ls='--')]
-from matplotlib.legend import Legend
-leg = Legend(ax, lines, labels=['keras', 'hls4ml'],
-            loc='lower right', frameon=False)
-ax.add_artist(leg)
-plt.savefig(out_loc_name+f'/plots/keras_vs_hls_perf_{hls_model_name}.pdf')
+#from matplotlib.lines import Line2D
+#lines = [Line2D([0], [0], ls='-'),
+#         Line2D([0], [0], ls='--')]
+#from matplotlib.legend import Legend
+#leg = Legend(ax, lines, labels=['keras', 'hls4ml'],
+#            loc='lower right', frameon=False)
+#ax.add_artist(leg)
+#plt.savefig(out_loc_name+f'/plots/keras_vs_hls_perf_{hls_model_name}.pdf')
 ######
 
 if args.prof:
